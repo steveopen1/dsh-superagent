@@ -138,9 +138,16 @@ export async function writeEnvironment(deployment: Pick<Deployment, 'stateDir' |
  * naming the agent's credential helper. They travel per spawn through the subprocess `env` seam, never through `process.env`, so a
  * profile a person also works in keeps its own `PATH` and git configuration untouched.
  */
-export function workerEnvironment(stateDir: string, path: string): Record<string, string> {
-  const defined = Object.entries(agentVariables(stateDir)).filter((entry): entry is [string, string] => entry[1] !== undefined)
-  return { ...Object.fromEntries(defined), PATH: [workerBin(stateDir), path].join(delimiter) }
+export function workerEnvironment(stateDir: string, path: string, proxy = ''): Record<string, string> {
+    const defined = Object.entries(agentVariables(stateDir)).filter((entry): entry is [string, string] => entry[1] !== undefined)
+    return { ...Object.fromEntries(defined), PATH: [workerBin(stateDir), path].join(delimiter), ...proxyEntries(proxy) }
+}
+
+/** The proxy variables a child process needs to route its outbound traffic; empty when no proxy is configured. */
+export function proxyEntries(proxy: string): Record<string, string> {
+    const value = proxy.trim()
+    if (value === '') return {}
+    return { HTTP_PROXY: value, HTTPS_PROXY: value, http_proxy: value, https_proxy: value }
 }
 
 /** Spawns a command through the DSH subprocess runtime, which strips credential-shaped environment variables. */

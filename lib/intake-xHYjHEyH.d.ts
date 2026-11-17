@@ -11,6 +11,8 @@ interface Machine {
   admissionContextMaxPages: Volatile<number>;
   admissionContextTimeoutMs: Volatile<number>;
   isolateEnvironment: boolean;
+  /** The HTTP(S) proxy every outbound call goes through; empty means no proxy. */
+  proxy: Volatile<string>;
 }
 interface Deployment extends Machine {
   repository: string;

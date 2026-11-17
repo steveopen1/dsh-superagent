@@ -2,7 +2,7 @@
 import type { Context } from '@deepseek-ai/cordis'
 import { UserError } from '../core/index.ts'
 import { SETUP_FIELDS, resolveDeployment, resolveFeishuBot, workerProbe, type Deployment, type Machine } from '../deployment.ts'
-import { verifyEnvironment, withoutDirectory, workerBin, workerEnvironment, writeEnvironment } from '../infra/environment.ts'
+import { proxyEntries, verifyEnvironment, withoutDirectory, workerBin, workerEnvironment, writeEnvironment } from '../infra/environment.ts'
 import type { Settings, SettingsBlock } from '../policy.ts'
 import { SetupError, type SetupProblem } from '../setup.ts'
 
@@ -33,10 +33,10 @@ export class Setup {
     this.path = withoutDirectory(process.env.PATH ?? '', workerBin(host.machine.stateDir))
   }
   /** Host command environment: the worker shim directory excluded from PATH, and ambient GitHub tokens stripped. */
-  get commandEnvironment(): Record<string, string | undefined> { return { PATH: this.path, GH_TOKEN: undefined, GITHUB_TOKEN: undefined } }
+  get commandEnvironment(): Record<string, string | undefined> { return { PATH: this.path, GH_TOKEN: undefined, GITHUB_TOKEN: undefined, ...proxyEntries(this.host.machine.proxy.get()) } }
   /** The entries a worker command carries, stamped per spawn by the preset's shell executor; empty when isolation is off. */
   get workerEntries(): Record<string, string> {
-    return this.host.machine.isolateEnvironment ? workerEnvironment(this.host.machine.stateDir, this.path) : {}
+    return this.host.machine.isolateEnvironment ? workerEnvironment(this.host.machine.stateDir, this.path, this.host.machine.proxy.get()) : {}
   }
   /** Publishes those entries as the `workerEnvironment` service the bundle's shell executors read; later calls overwrite its value. */
   private publish(entries: Record<string, string>): void {

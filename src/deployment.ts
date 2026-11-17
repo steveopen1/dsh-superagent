@@ -22,16 +22,20 @@ export const Config: Schemastery<Record<string, unknown>, Machine> = s.object({
   admissionContextTimeoutMs: s.number().min(LIMITS.admissionContextTimeoutMs.min).max(LIMITS.admissionContextTimeoutMs.max).step(1)
     .default(15000).description('Time limit of one context read during an assessment, in milliseconds.').volatile(),
   isolateEnvironment: s.boolean().default(true),
+  proxy: s.string().default('')
+    .description('Optional HTTP(S) proxy for every outbound call this plugin makes (GitHub, the agent CLI, and the worker\'s git and gh): for example http://127.0.0.1:7897. Empty means no proxy.').volatile(),
 })
 export type DeploymentConfig = Machine
 /** The keys this plugin's configuration may carry; anything else is a setup problem naming where the value moved. */
-const KEYS = ['stateDir', 'promptMaxChars', 'admissionContextMaxPages', 'admissionContextTimeoutMs', 'isolateEnvironment']
+const KEYS = ['stateDir', 'promptMaxChars', 'admissionContextMaxPages', 'admissionContextTimeoutMs', 'isolateEnvironment', 'proxy']
 export interface Machine {
   stateDir: string
   promptMaxChars: Volatile<number>
   admissionContextMaxPages: Volatile<number>
   admissionContextTimeoutMs: Volatile<number>
   isolateEnvironment: boolean
+  /** The HTTP(S) proxy every outbound call goes through; empty means no proxy. */
+  proxy: Volatile<string>
 }
 const MOVED: Record<string, string> = {
   repository: 'on the GitHub Source', branchPrefix: 'in the prepare command of the Execution settings', github: 'on the GitHub Source',
@@ -43,8 +47,8 @@ const MOVED: Record<string, string> = {
 export function machineOf(config: DeploymentConfig): Machine {
   const unknown = Object.keys(config).filter(key => !KEYS.includes(key))
   if (unknown.length) throw new Error(`dsh-superagent configuration has keys it does not use: ${unknown.map(key => MOVED[key] ? `${key} (now ${MOVED[key]})` : key).join(', ')}; docs/006-deployment.md lists the keys`)
-  const { stateDir, promptMaxChars, admissionContextMaxPages, admissionContextTimeoutMs, isolateEnvironment } = config
-  return { stateDir, promptMaxChars, admissionContextMaxPages, admissionContextTimeoutMs, isolateEnvironment }
+  const { stateDir, promptMaxChars, admissionContextMaxPages, admissionContextTimeoutMs, isolateEnvironment, proxy } = config
+  return { stateDir, promptMaxChars, admissionContextMaxPages, admissionContextTimeoutMs, isolateEnvironment, proxy: proxy ?? '' }
 }
 
 export const GithubAccountsSchema = z.object({
