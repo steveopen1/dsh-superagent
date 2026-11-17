@@ -56,6 +56,26 @@ const now = (): string => new Date().toISOString()
  * Exposes the `SourceHost` service on the Cordis context for source plugins and coordinates startup, setup checks, HTTP route registration, and graceful shutdown.
  * Locks the state directory before opening SQLite so concurrent processes cannot corrupt or double-migrate state.
  */
+/**
+ * Take the state directory's lock, waiting for a previous host to release it.
+ *
+ * The desktop host replaces itself when the profile changes, and the old one can still hold the
+ * lock for a moment. Dying on that would leave the engine dead in every new host, so the new one
+ * waits for the old one to let go.
+ */
+function takeStateLock(dir: string, onCompromised: (error: Error) => void): () => void {
+  const deadline = Date.now() + 120_000
+  for (;;) {
+    try {
+      return lockSync(dir, { stale: 30_000, onCompromised })
+    } catch (error) {
+      if (Date.now() >= deadline) throw error
+      // Sleep without blocking the event loop's timers for long: the lock is a file operation.
+      Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 1000)
+    }
+  }
+}
+
 export class Runtime extends Service implements SourceHost {
   readonly store: Store
   readonly setup: Setup
@@ -90,7 +110,9 @@ export class Runtime extends Service implements SourceHost {
     // Lock the state directory before opening the database so another process cannot migrate or write concurrently.
     mkdirSync(machine.stateDir, { recursive: true, mode: 0o700 })
     const compromised = (error: Error) => { this.runtimeHealth.set({ state: 'error', detail: error.message }); this.stopped.abort() }
-    const release = lockSync(machine.stateDir, { stale: 30_000, onCompromised: compromised })
+    // A host that is being replaced can still hold the lock for a moment. Wait for it instead of
+    // dying on startup: the replacement host is the one that has to take over.
+    const release = takeStateLock(machine.stateDir, compromised)
     this.releaseLock = async () => { release() }
     let opened: Store | undefined
     try {
