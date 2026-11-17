@@ -3,7 +3,6 @@
   "author": "DeepSeek Harness Team <team@dsh.dev>",
   "license": "MIT",
   "version": "0.1.0",
-  "private": true,
   "description": "A proactive agent for one GitHub repository, as a DSH (DeepSeek Harness) bundle: it listens to GitHub and optionally Feishu, evaluates requests under a Policy, turns authorized ones into Tickets, and executes each in its own DSH Session.",
   "type": "module",
   "main": "lib/index.js",
@@ -126,5 +125,23 @@
     "tsdown": "0.22.14",
     "typescript": "6.0.3",
     "vitest": "4.1.8"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/steveopen1/dsh-superagent.git"
+  },
+  "homepage": "https://github.com/steveopen1/dsh-superagent#readme",
+  "bugs": {
+    "url": "https://github.com/steveopen1/dsh-superagent/issues"
+  },
+  "keywords": [
+    "dsh",
+    "deepseek-harness",
+    "superagent",
+    "github",
+    "windows"
+  ],
+  "publishConfig": {
+    "access": "public"
   }
 }
