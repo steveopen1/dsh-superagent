@@ -87,11 +87,32 @@ export type Probe = (argv: string[], env?: Record<string, string>) => Promise<st
  * PATH and extra variables travel as explicit spawn environment entries: DSH merges them over its scrubbed child environment, and a POSIX
  * `env NAME=value` prefix does not exist on Windows.
  */
+/** How many times a probe runs before its failure is taken at face value. */
+const PROBE_ATTEMPTS = 3
+/** The wait between probe attempts. */
+const PROBE_BACKOFF_MS = [2_000, 8_000]
+
 export function workerProbe(subprocess: SubprocessRuntime, stateDir: string, cwd: string, signal: AbortSignal, env?: Record<string, string | undefined>): Probe {
   const path = withoutDirectory(process.env.PATH ?? '', workerBin(stateDir))
   // The probe must reach the same network as the worker: without the proxy it can fail where the
   // worker succeeds, and the whole engine then stays paused on a setup problem it cannot see.
-  return (argv, more) => runAsWorker(subprocess, argv, cwd, AbortSignal.any([signal, AbortSignal.timeout(60_000)]), { PATH: path, ...env, ...more })
+  // A dropped connection is not a signed-out account, so a probe is tried a few times before its
+  // failure counts as the answer.
+  return async (argv, more) => {
+    let last: unknown
+    for (let attempt = 0; attempt < PROBE_ATTEMPTS; attempt++) {
+      try {
+        return await runAsWorker(subprocess, argv, cwd, AbortSignal.any([signal, AbortSignal.timeout(60_000)]), { PATH: path, ...env, ...more })
+      } catch (error) {
+        last = error
+        if (signal.aborted) break
+        const wait = PROBE_BACKOFF_MS[attempt]
+        if (wait == null) break
+        await new Promise(resolve => setTimeout(resolve, wait))
+      }
+    }
+    throw last
+  }
 }
 
 const GithubUser = z.object({ login: z.string().regex(/^[A-Za-z0-9-]+$/), id: z.number().int().positive() })

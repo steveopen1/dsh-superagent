@@ -214,8 +214,14 @@ export class Runtime extends Service implements SourceHost {
     }
     if (!await this.setup.run(this.store.settings())) {
       this.runtimeHealth.set({ ...health('paused', 'setupPending'), at: now() })
+      // The network can be flaky at boot. Keep probing instead of staying dead until a restart.
+      this.retrySetup()
       return
     }
+    await this.startWork()
+  }
+  /** Runs the parts that need a resolved setup: sessions, executor and the background loops. */
+  private async startWork(): Promise<void> {
     this.sessions.install()
     this.executor.install()
     await this.sessions.ensure(this.masterId, this.machine.stateDir, 'dsh-superagent orchestrator', 'orchestrator')
@@ -226,6 +232,20 @@ export class Runtime extends Service implements SourceHost {
     this.passes.start()
     this.effects.start()
     this.runtimeHealth.set({ state: 'ready', detail: 'Orchestrator is ready', at: now() })
+  }
+  /** Re-probe the setup until it resolves, then start the work. */
+  private retrySetup(): void {
+    const timer = setInterval(() => {
+      void (async () => {
+        if (this.closing()) return
+        if (!await this.setup.run(this.store.settings())) return
+        clearInterval(timer)
+        this.note('setup resolved on a later attempt')
+        await this.startWork()
+      })()
+    }, 60_000)
+    timer.unref?.()
+    this.disposers.push(() => clearInterval(timer))
   }
   private httpHost(): HttpHost {
     const runtime = this
