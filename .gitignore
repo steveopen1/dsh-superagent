@@ -1,0 +1,7 @@
+node_modules/
+# lib/ is the build output, but it is committed: a github: install must load without a build.
+.artifacts/
+.env
+coverage/
+
+.vitest-*.txt
