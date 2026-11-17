@@ -116,6 +116,7 @@ declare const SettingsSchema: z.ZodObject<{
     maxWorkers: z.ZodDefault<z.ZodNumber>;
     directory: z.ZodDefault<z.ZodString>;
     prepare: z.ZodDefault<z.ZodString>;
+    proxy: z.ZodDefault<z.ZodString>;
     blockedCommands: z.ZodDefault<z.ZodArray<z.ZodString>>;
   }, z.core.$strict>>;
 }, z.core.$strict>;
@@ -182,6 +183,7 @@ declare class SourceRegistry implements SourceScope {
       maxWorkers: number;
       directory: string;
       prepare: string;
+      proxy: string;
       blockedCommands: string[];
     };
   }): (SourceInstance & {
@@ -227,6 +229,7 @@ declare class SourceRegistry implements SourceScope {
       maxWorkers: number;
       directory: string;
       prepare: string;
+      proxy: string;
       blockedCommands: string[];
     };
   }): SourceInstance<C> | undefined;
@@ -284,6 +287,7 @@ declare class SourceRegistry implements SourceScope {
       maxWorkers: number;
       directory: string;
       prepare: string;
+      proxy: string;
       blockedCommands: string[];
     };
   }): {
@@ -336,6 +340,7 @@ declare class SourceRegistry implements SourceScope {
       maxWorkers: number;
       directory: string;
       prepare: string;
+      proxy: string;
       blockedCommands: string[];
     };
   }): boolean;
@@ -384,6 +389,7 @@ declare class SourceRegistry implements SourceScope {
       maxWorkers: number;
       directory: string;
       prepare: string;
+      proxy: string;
       blockedCommands: string[];
     };
   }): {
@@ -445,6 +451,7 @@ declare class SourceRegistry implements SourceScope {
       maxWorkers: number;
       directory: string;
       prepare: string;
+      proxy: string;
       blockedCommands: string[];
     };
   }): TriggerContext | undefined;
@@ -491,6 +498,7 @@ declare class SourceRegistry implements SourceScope {
       maxWorkers: number;
       directory: string;
       prepare: string;
+      proxy: string;
       blockedCommands: string[];
     };
   }): ScopeResult;

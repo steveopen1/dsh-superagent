@@ -27,16 +27,18 @@ export class Setup {
   feishuProblem?: SetupProblem
   /** PATH with the worker shim directory removed so the host's own CLI calls invoke the real binaries. */
   private readonly path: string
+  /** The proxy every outbound call goes through: the Execution settings' value, else the plugin configuration's. */
+  private proxy = ''
   /** Disposer for the published worker-environment service. */
   private published?: () => void
   constructor(private readonly host: SetupHost) {
     this.path = withoutDirectory(process.env.PATH ?? '', workerBin(host.machine.stateDir))
   }
   /** Host command environment: the worker shim directory excluded from PATH, and ambient GitHub tokens stripped. */
-  get commandEnvironment(): Record<string, string | undefined> { return { PATH: this.path, GH_TOKEN: undefined, GITHUB_TOKEN: undefined, ...proxyEntries(this.host.machine.proxy.get()) } }
+  get commandEnvironment(): Record<string, string | undefined> { return { PATH: this.path, GH_TOKEN: undefined, GITHUB_TOKEN: undefined, ...proxyEntries(this.proxy) } }
   /** The entries a worker command carries, stamped per spawn by the preset's shell executor; empty when isolation is off. */
   get workerEntries(): Record<string, string> {
-    return this.host.machine.isolateEnvironment ? workerEnvironment(this.host.machine.stateDir, this.path, this.host.machine.proxy.get()) : {}
+    return this.host.machine.isolateEnvironment ? workerEnvironment(this.host.machine.stateDir, this.path, this.proxy) : {}
   }
   /** Publishes those entries as the `workerEnvironment` service the bundle's shell executors read; later calls overwrite its value. */
   private publish(entries: Record<string, string>): void {
@@ -76,6 +78,17 @@ export class Setup {
   async blockCommands(blocked: readonly string[]): Promise<void> {
     if (this.resolved && this.host.machine.isolateEnvironment) await writeEnvironment(this.resolved, blocked)
   }
+  /**
+   * Adopt the Execution settings and re-publish the worker entries.
+   *
+   * The proxy reaches every outbound call through the published worker environment and the host's own
+   * command environment, so a proxy change has to be re-stamped for the workers to see it at once.
+   */
+  async applyExecutor(settings: Settings): Promise<void> {
+    this.proxy = settings.executor.proxy.trim() || this.host.machine.proxy.get()
+    if (this.resolved && this.host.machine.isolateEnvironment) await writeEnvironment(this.resolved, settings.executor.blockedCommands)
+    this.publish(this.workerEntries)
+  }
   /** Withdraw the published entries: setup failed, so no worker command may carry half a deployment. */
   restore(): void { this.publish({}) }
   /** Probes CLIs the way worker shells run them, using `stateDir` as `cwd` since it exists even before the repository clone is valid. */
@@ -100,6 +113,7 @@ export class Setup {
     }
     // Isolation is what binds workers to the agent account. It is scoped: the entries travel with each worker command, so this
     // process's own PATH and git configuration are never touched, whether or not a person also works in this profile.
+    this.proxy = settings.executor.proxy.trim() || this.host.machine.proxy.get()
     const entries = this.workerEntries
     if (machine.isolateEnvironment) {
       await writeEnvironment(resolved, settings.executor.blockedCommands).catch(machineProblem)

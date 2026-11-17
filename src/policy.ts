@@ -94,6 +94,8 @@ export const ExecutorConfigSchema = z.object({
   // Absolute as POSIX (`/home/me`) or as a Windows drive path (`C:\Users\me`, `C:/Users/me`); both platforms run this bundle.
   directory: z.string().trim().refine(path => path === '' || path.startsWith('/') || /^[A-Za-z]:[\\/]/.test(path), 'An absolute path (/home/me or C:\\Users\\me), or empty for <stateDir>/work').default(''),
   prepare: z.string().max(LIMITS.prepareCommand).default(''),
+  /** Optional HTTP(S) proxy for every outbound call: the GitHub Source, the agent CLI and the worker's git and gh. Empty means no proxy. */
+  proxy: z.string().trim().max(400).default(''),
   blockedCommands: z.array(CommandNameSchema).default([]),
 }).strict()
 export const SourceInstanceSchema = z.object({ enabled: z.boolean().default(true), config: z.record(z.string(), z.unknown()).default({}) }).strict()
