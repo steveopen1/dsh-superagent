@@ -87,9 +87,11 @@ export type Probe = (argv: string[], env?: Record<string, string>) => Promise<st
  * PATH and extra variables travel as explicit spawn environment entries: DSH merges them over its scrubbed child environment, and a POSIX
  * `env NAME=value` prefix does not exist on Windows.
  */
-export function workerProbe(subprocess: SubprocessRuntime, stateDir: string, cwd: string, signal: AbortSignal): Probe {
+export function workerProbe(subprocess: SubprocessRuntime, stateDir: string, cwd: string, signal: AbortSignal, env?: Record<string, string | undefined>): Probe {
   const path = withoutDirectory(process.env.PATH ?? '', workerBin(stateDir))
-  return (argv, env) => runAsWorker(subprocess, argv, cwd, AbortSignal.any([signal, AbortSignal.timeout(60_000)]), { PATH: path, ...env })
+  // The probe must reach the same network as the worker: without the proxy it can fail where the
+  // worker succeeds, and the whole engine then stays paused on a setup problem it cannot see.
+  return (argv, more) => runAsWorker(subprocess, argv, cwd, AbortSignal.any([signal, AbortSignal.timeout(60_000)]), { PATH: path, ...env, ...more })
 }
 
 const GithubUser = z.object({ login: z.string().regex(/^[A-Za-z0-9-]+$/), id: z.number().int().positive() })

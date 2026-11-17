@@ -54,6 +54,8 @@ export class Setup {
   configured(): boolean { return this.resolved !== undefined }
   /** Resolve deployment accounts and apply the worker environment, recording `SetupError` failures in `problem`/`feishuProblem` and rethrowing unexpected errors. */
   async run(settings: Settings): Promise<boolean> {
+    // The proxy has to be known before the probe runs: the probe is what decides readiness.
+    this.proxy = settings.executor.proxy.trim() || this.host.machine.proxy.get()
     try { this.resolved = await this.resolve(settings); return true }
     catch (error) {
       if (!(error instanceof SetupError)) throw error
@@ -94,7 +96,7 @@ export class Setup {
   /** Probes CLIs the way worker shells run them, using `stateDir` as `cwd` since it exists even before the repository clone is valid. */
   private probe() {
     const { context, machine, lifetime } = this.host
-    return workerProbe(context.subprocess, machine.stateDir, machine.stateDir, lifetime)
+    return workerProbe(context.subprocess, machine.stateDir, machine.stateDir, lifetime, proxyEntries(this.proxy))
   }
   private async resolve(settings: Settings): Promise<Deployment> {
     const { context, machine, lifetime } = this.host
