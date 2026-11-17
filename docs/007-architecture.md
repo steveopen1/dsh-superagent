@@ -192,6 +192,12 @@ Generic code accesses Source behavior through the registry. `send(message, comma
 
 Plugins receive `SourceHost`: the registry and `context(kind)`. The kind itself uses a narrower `SourceContext`, built by `sourceContextOf` in `src/app/source-context.ts`.
 
+### The contract
+
+`src/contract.ts` states the surface a Source plugin is written against — the members of `SourceKind`, `SourceContext`, `Trigger` and `Ticket`, and the health vocabulary — as data that an outside copy of those types can compare against, and exports it as the package's `./contract` subpath. The reason it is data and not only types: the host **ignores** what it does not know, so a renamed field is not an error but a silence — a health code that no longer exists is not translated, a `meta` key that moved is not read, and a plugin in another package keeps "working" while doing nothing.
+
+`tests/contract.spec.ts` builds its fixtures from those names and asks the host whether it still understands them: which optional members it reads, which fields a Trigger and a Ticket keep, how a kind's schema defaults and refuses, and which health codes it speaks. The type-level assertions in `src/contract.ts` make the same rename a compile error, so both guards fail together.
+
 That context supplies deployment and commands, setup readiness (`ready`, `configured`, `problem`), configuration, `receive`, `atomic`, and typed `state`. It also exposes Thread reads and metadata writes, Ticket reads and binding/closure commands, Trigger reads, `notify` through Outbox, and `report` for declared health entries.
 
 ### DshExecutor
@@ -298,6 +304,7 @@ Some generic modules still refer directly to GitHub or Feishu:
 | `src/limits.ts` | The limits of the values a person sets, which the settings schemas check and the panel's fields offer |
 | `src/kv.ts` | `KV`: every family of `kv` records with its key, its value's type and its owner, and the `Key` and `Family` types the Store and `SourceContext.state` take |
 | `src/navigation.ts` | Opens a DeepSeek Harness Session from the panel once the host's catalog lists it |
+| `src/contract.ts` | `SOURCE_CONTRACT`: the surface a Source plugin is written against, as data an outside copy can compare against, with the type-level assertions that tie it to the real interfaces |
 | `src/core/model.ts` | The domain types, among them the typed Ticket and `MandateBasis`, with `threadKey`, `ticketOutcome`, `reached`, `followupOwners`, `settled`, `waitsForPerson`, `liveTicket`, `runningAssignment`, `latestAssignment` and `latestReport` |
 | `src/core/ports.ts` | The ports: `Repositories`, `Policy`, `SourceScope`, `Assessor`, `Executor`, `Outbox`, and the domain events |
 | `src/core/engine.ts` | The Engine, the core's entry point, and the role interfaces `EngineForSources`, `EngineForMainSession`, `EngineForPeople`, `EngineForSettings` and `EngineForExecutor` |
@@ -407,6 +414,8 @@ Some generic modules still refer directly to GitHub or Feishu:
 | `tests/stage.spec.ts` | The Ticket stages, row by row |
 | `tests/policy.spec.ts` | Source scope, the gate, the admission table, Mandate revalidation, the Policy version, settings migrations and assessment outcomes |
 | `tests/registry.spec.ts` | `SourceRegistry`: instances, validation, Policy parts, Channels and Thread context |
+| `tests/contract.spec.ts` | The contract a Source plugin is written against, checked against the host that serves it: the members it reads, the fields a Trigger and a Ticket keep, the schema defaults and refusals, and the health vocabulary |
+| `tests/worker-scope.spec.ts` | How far a ticket's scope reaches its worker: the request an explicit worker reads, the scope and rules a proactive one reads, the ticket's directory, and the fact that no command restriction comes from the scope |
 | `tests/sources.spec.ts` | The Feishu and GitHub Sources on a `SourceContext`: translation, polls and read positions, the pull request rules, health |
 | `tests/commands.spec.ts` | CLI calls as the deployment's accounts, the Channels' answers, and repository-scoped GitHub calls |
 | `tests/feishu-read.spec.ts`, `tests/github-read.spec.ts` | Feishu and GitHub reads |

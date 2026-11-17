@@ -13,6 +13,7 @@
       "default": "./lib/index.js"
     },
     "./client": "./lib/client.js",
+    "./contract": "./lib/contract.js",
     "./github-watch": "./lib/github-watch.js",
     "./feishu-watch": "./lib/feishu-watch.js",
     "./worker-shell-pwsh": "./lib/worker-shell-pwsh.js",

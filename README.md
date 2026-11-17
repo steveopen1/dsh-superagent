@@ -87,6 +87,8 @@ dsh plugin --profile superagent add "link:$PWD"
 - 上游是研究原型；本移植只做"能在 Windows 跑 + 身份范围更小"，不改变其设计取舍。
 - 仓库里的单元测试是 POSIX 形态（依赖 `sh`、`sleep`、`/tmp`），在 Windows 上会失败；交叉验证请在 WSL/Linux 里 `pnpm vitest run`。
 - 移动端、多用户、远程部署未验证。
+- **工单的范围目前只是约定**：引擎授权工单（Policy 决定能不能开工），但不限制 worker 干活时的文件写入——worker 改了 scope 外的文件，引擎既不拦，也不记成「越界」。worker 的可写范围实际由 DSH 的沙箱按会话工作目录决定，在引擎之外。详见 [UPSTREAM.md](UPSTREAM.md) 第 6 节。
+- **对 Source 插件的承诺可以核对了**：`dsh-superagent/contract` 导出这份契约（`SOURCE_CONTRACT`），别的包可以拿它比对自己抄的类型副本；引擎改名时 `tests/contract.spec.ts` 会先变红。
 
 ---
 

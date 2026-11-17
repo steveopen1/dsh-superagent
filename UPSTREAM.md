@@ -2,7 +2,7 @@
 
 上游仓库：[deepseek-ai/dsh-superagent-prototype](https://github.com/deepseek-ai/dsh-superagent-prototype)（基线 commit `6337fc8`）。
 
-本仓库对上游的改动只有两类：**Windows 兼容**（不改语义）与 **身份下发范围**（改语义，见第 2 节）。其余文件与上游一致，`docs/`、`prompts/`、`skills/`、`locale/`、`examples/` 均未改动。
+本仓库对上游的改动有三类：**Windows 兼容**（不改语义）、**身份下发范围**（改语义，见第 2 节）与**契约守卫**（不改语义，见第 5 节）。其余文件与上游一致，`prompts/`、`skills/`、`locale/`、`examples/` 均未改动；`docs/` 只多了第 5 节讲的那一处说明。
 
 ---
 
@@ -64,8 +64,40 @@
 
 ## 4. 未改动的部分
 
-- 领域模型、策略、评估、工单、交付、面板、提示词、Skill、locale、`docs/`
+- 领域模型、策略、评估、工单、交付、面板、提示词、Skill、locale（`docs/007-architecture.md` 只补了契约一节）
 - `scripts/dsh-superagent`（POSIX 服务脚本，Windows 上不适用；服务用 `dsh --profile … --no-open` 或自己的守护方式）
 - 上游的测试用例（除第 3 节提到的那一处期望值）
 
 测试本身是 POSIX 形态（依赖 `sh` / `sleep` / `/tmp`），在 Windows 上运行会失败；交叉验证请在 WSL 或 Linux 里 `pnpm vitest run`。
+---
+
+## 5. 契约守卫（不改上游行为）
+
+上游把「对 Source 插件的承诺」只写在类型里（`src/sources/kind.ts`、`src/sources/host.ts`、`src/core/model.ts`），
+而宿主对不认识的字段是**消费者 fall through**：字段改名不会报错，只会被静默忽略。
+放在别的包里的插件（例如计划板桥）各自抄了一份类型，于是引擎升版时两边悄悄失配——这类问题在生产里极难查。
+
+本仓库把这份承诺抽成**数据**，并给它加了两道守卫：
+
+| 文件 | 改动 | 原因 |
+| --- | --- | --- |
+| `src/contract.ts`（新增） | `SOURCE_CONTRACT`：kind / context / trigger / ticket / channel / policy / threadContext / host / health 的字段名清单，外加把这些名字与真实接口绑在一起的类型级断言 | 让「承诺」变成外部副本能在运行时比对的数据；改名在 `tsc` 阶段就红 |
+| `tests/contract.spec.ts`（新增） | 用契约里的名字造 fixture，再问宿主还认不认：读哪些可选成员、Trigger/Ticket 保留哪些字段、schema 怎么填默认值与拒绝未知键、健康码是哪几个 | 引擎改名时**测试变红**，而不是插件静默失灵 |
+| `tests/worker-scope.spec.ts`（新增） | 工单的 scope 到底能管到 worker 哪一步 | 见第 6 节 |
+| `tsdown.config.ts` / `package.json` / `src/index.ts` | 新增 `contract` 构建入口、`./contract` 子路径导出，包根也再导出一次 | 让别的包能在运行时读到这份契约（`import { SOURCE_CONTRACT } from 'dsh-superagent/contract'`） |
+
+---
+
+## 6. worker 的范围目前只是约定（不是强制）
+
+引擎**授权**工单（Policy 的 gate 决定能不能开工，Mandate 记录被授权到什么程度），但**不约束** worker 干活的过程：
+
+| 本该管住 worker 的东西 | 现状 |
+| --- | --- |
+| 工单 scope | 文本。对**明确请求**的工单，scope 文本根本不下发给 worker（`ticketExecution` 只带路由备注），worker 读到的范围就是**原始请求本身**；对**主动推断**的工单，assignment 里带 `Scope: …` 与命中的规则，系统提示词里另有一段限制 |
+| 文件写入范围 | 引擎不管。worker 的工作目录是工单自己的目录（`DSH_SUPERAGENT_DIR`），越界写入靠 **DSH 的沙箱**（在引擎之外，按会话 cwd 决定可写根目录），引擎不参与 |
+| 命令黑名单 | `executor.blockedCommands` 是**运维配置**，按命令名拦，面板文案自己写明「不是安全边界」；与工单 scope 无关 |
+
+也就是说：worker 改了 scope 外的文件，引擎**不会拦，也不会记录成「越界」**；能看到的只有工单本身（报告、PR、worktree 里的文件）。
+`tests/worker-scope.spec.ts` 把这条现状钉住：将来谁加约束或撤约束，都必须改这个测试，不会悄悄变。
+本仓库没有实现更强的约束；可做的下一步是 worker 报告时用 `git status` 记下本工单改动的文件清单并存进工单，让「越界」**可见**。
